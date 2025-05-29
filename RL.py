@@ -207,60 +207,289 @@ def train_agent(episodes=1000, batch_size=32):
             # Switch turns
             turn = (turn + 1) % 2
 
-# Function to play a game using the trained RL agent against the minimax AI
-def play_rl_vs_minimax(rl_agent, depth=5):
-    from main import minimax
+def play_and_train(episodes=50, batch_size=32):
+    """Train the RL agent by playing against it"""
+    agent = DQNAgent(ROW_COUNT * COLUMN_COUNT + 1, COLUMN_COUNT)
+    win_stats = {'Human': 0, 'AI': 0, 'Draw': 0}
     
-    board = create_board()
-    game_over = False
-    turn = random.randint(0, 1)  # Randomly decide who goes first
-    
-    print("Starting game: RL Agent vs Minimax")
-    print_board(board)
-    
-    while not game_over:
-        if turn == 0:  # RL Agent's turn
-            valid_locations = get_valid_locations(board)
-            state = rl_agent.encode_state(board, PLAYER_PIECE)
-            col = rl_agent.act(state, valid_locations)
-            
-            if is_valid_location(board, col):
+    for episode in range(episodes):
+        board = create_board()
+        game_over = False
+        turn = 0  # Human always goes first for simplicity
+        
+        print(f"\nEpisode {episode+1}/{episodes}")
+        print("Current stats: Human wins: {}, AI wins: {}, Draws: {}".format(
+            win_stats['Human'], win_stats['AI'], win_stats['Draw']))
+        print("AI exploration rate (epsilon): {:.2f}".format(agent.epsilon))
+        print_board(board)
+        
+        while not game_over:
+            if turn == 0:  # Human's turn
+                valid_cols = get_valid_locations(board)
+                col = None
+                while col is None:
+                    try:
+                        col_input = input("Your turn! Choose column (0-6): ")
+                        col = int(col_input)
+                        if col not in valid_cols:
+                            print("Invalid column! Try again.")
+                            col = None
+                    except ValueError:
+                        print("Please enter a number between 0 and 6.")
+                
+                # Execute human move
                 row = get_next_open_row(board, col)
                 drop_piece(board, row, col, PLAYER_PIECE)
-                
-                print(f"RL Agent dropped piece in column {col}")
                 print_board(board)
                 
+                # Check if human won
                 if winning_move(board, PLAYER_PIECE):
-                    print("RL Agent wins!")
+                    print("You win! Agent will learn from this.")
+                    win_stats['Human'] += 1
                     game_over = True
-        
-        else:  # Minimax AI's turn
-            col, _ = minimax(board, depth, -float('inf'), float('inf'), True)
-            
-            if is_valid_location(board, col):
-                row = get_next_open_row(board, col)
-                drop_piece(board, row, col, AI_PIECE)
                 
-                print(f"Minimax AI dropped piece in column {col}")
+                # Get state after human move for the agent to learn
+                next_state = agent.encode_state(board, AI_PIECE)
+                
+            else:  # RL Agent's turn
+                valid_locations = get_valid_locations(board)
+                if not valid_locations:
+                    win_stats['Draw'] += 1
+                    print("It's a draw!")
+                    game_over = True
+                    continue
+                
+                # Get current state
+                state = agent.encode_state(board, AI_PIECE)
+                
+                # Agent chooses action
+                action = agent.act(state, valid_locations)
+                print(f"AI is thinking... and chooses column {action}")
+                
+                # Execute action
+                row = get_next_open_row(board, action)
+                drop_piece(board, row, action, AI_PIECE)
                 print_board(board)
                 
+                # Calculate reward
+                reward = 0
+                
+                # Check if agent won
                 if winning_move(board, AI_PIECE):
-                    print("Minimax AI wins!")
+                    print("AI wins this round!")
+                    win_stats['AI'] += 1
+                    reward = 100
                     game_over = True
+                elif len(get_valid_locations(board)) == 0:  # Draw
+                    print("It's a draw!")
+                    win_stats['Draw'] += 1
+                    reward = 0
+                    game_over = True
+                else:
+                    # Reward for blocking potential human wins
+                    # Check if agent blocked a winning move
+                    temp_board = board.copy()
+                    for test_col in valid_locations:
+                        if test_col == action:  # Skip the move we just made
+                            continue
+                        test_row = get_next_open_row(temp_board, test_col)
+                        temp_board[test_row][test_col] = PLAYER_PIECE
+                        if winning_move(temp_board, PLAYER_PIECE):
+                            reward += 50  # Reward for blocking
+                        # Reset the temp board
+                        temp_board[test_row][test_col] = EMPTY
+                    
+                    # Center control is generally good
+                    if action == COLUMN_COUNT // 2:
+                        reward += 3
+                
+                # Store experience
+                next_state = agent.encode_state(board, PLAYER_PIECE) if not game_over else None
+                agent.remember(state, action, reward, next_state, game_over)
+                
+                # Train the model
+                agent.replay(batch_size)
+            
+            # Switch turns
+            turn = (turn + 1) % 2
         
-        # Check for draw
-        if len(get_valid_locations(board)) == 0:
-            print("Game is a draw!")
-            game_over = True
+        # After each game, update target network
+        if episode % 5 == 0:
+            agent.update_target_model()
+    
+    # Save the trained model
+    torch.save(agent.model.state_dict(), "human_trained_rl_model.pth")
+    print("\nTraining complete! Model saved to 'human_trained_rl_model.pth'")
+    
+    # Show final stats
+    print(f"Final stats: Human wins: {win_stats['Human']}, AI wins: {win_stats['AI']}, Draws: {win_stats['Draw']}")
+    
+    return agent
+
+# Function to test the trained agent against minimax
+def test_trained_agent_vs_minimax(agent, depth=5, num_games=5):
+    from main import minimax
+    
+    win_stats = {'RL': 0, 'Minimax': 0, 'Draw': 0}
+    
+    for game in range(num_games):
+        board = create_board()
+        game_over = False
+        turn = random.randint(0, 1)  # Randomly decide who goes first
         
-        # Switch turns
-        turn = (turn + 1) % 2
+        print(f"\nGame {game+1}/{num_games}")
+        print_board(board)
+        
+        while not game_over:
+            if turn == 0:  # RL Agent's turn
+                valid_locations = get_valid_locations(board)
+                state = agent.encode_state(board, PLAYER_PIECE)
+                col = agent.act(state, valid_locations)
+                
+                if is_valid_location(board, col):
+                    row = get_next_open_row(board, col)
+                    drop_piece(board, row, col, PLAYER_PIECE)
+                    
+                    print(f"RL Agent dropped piece in column {col}")
+                    print_board(board)
+                    
+                    if winning_move(board, PLAYER_PIECE):
+                        print("RL Agent wins!")
+                        win_stats['RL'] += 1
+                        game_over = True
+            
+            else:  # Minimax AI's turn
+                col, _ = minimax(board, depth, -float('inf'), float('inf'), True)
+                
+                if is_valid_location(board, col):
+                    row = get_next_open_row(board, col)
+                    drop_piece(board, row, col, AI_PIECE)
+                    
+                    print(f"Minimax AI dropped piece in column {col}")
+                    print_board(board)
+                    
+                    if winning_move(board, AI_PIECE):
+                        print("Minimax AI wins!")
+                        win_stats['Minimax'] += 1
+                        game_over = True
+            
+            # Check for draw
+            if len(get_valid_locations(board)) == 0:
+                print("Game is a draw!")
+                win_stats['Draw'] += 1
+                game_over = True
+            
+            # Switch turns
+            turn = (turn + 1) % 2
+    
+    print("\nTest results:")
+    print(f"RL Agent wins: {win_stats['RL']}")
+    print(f"Minimax AI wins: {win_stats['Minimax']}")
+    print(f"Draws: {win_stats['Draw']}")
+
+# Function to load a trained model
+def load_trained_model(model_path="human_trained_rl_model.pth"):
+    agent = DQNAgent(ROW_COUNT * COLUMN_COUNT + 1, COLUMN_COUNT)
+    agent.model.load_state_dict(torch.load(model_path))
+    agent.target_model.load_state_dict(agent.model.state_dict())
+    agent.epsilon = 0.05  # Low epsilon for exploitation
+    return agent
 
 # Main execution
 if __name__ == "__main__":
-    print("Starting Connect Four RL training...")
-    agent = train_agent(episodes=2000)
+    print("What would you like to do?")
+    print("1. Train the RL agent by playing against it")
+    print("2. Test a trained agent against minimax")
+    print("3. Play against a trained agent")
     
-    # Play against minimax
-    play_rl_vs_minimax(agent)
+    choice = input("Enter your choice (1-3): ")
+    
+    if choice == '1':
+        episodes = int(input("How many games would you like to play? "))
+        agent = play_and_train(episodes=episodes)
+        
+        # Ask if user wants to test against minimax
+        test_choice = input("Would you like to test your trained agent against minimax? (y/n): ")
+        if test_choice.lower() == 'y':
+            num_games = int(input("How many test games? "))
+            test_trained_agent_vs_minimax(agent, num_games=num_games)
+    
+    elif choice == '2':
+        try:
+            agent = load_trained_model()
+            num_games = int(input("How many test games? "))
+            test_trained_agent_vs_minimax(agent, num_games=num_games)
+        except FileNotFoundError:
+            print("No trained model found. Please train the agent first.")
+    
+    elif choice == '3':
+        try:
+            agent = load_trained_model()
+            board = create_board()
+            game_over = False
+            turn = 0  # Human goes first
+            
+            print("Playing against trained RL agent")
+            print_board(board)
+            
+            while not game_over:
+                if turn == 0:  # Human's turn
+                    valid_cols = get_valid_locations(board)
+                    col = None
+                    while col is None:
+                        try:
+                            col_input = input("Your turn! Choose column (0-6): ")
+                            col = int(col_input)
+                            if col not in valid_cols:
+                                print("Invalid column! Try again.")
+                                col = None
+                        except ValueError:
+                            print("Please enter a number between 0 and 6.")
+                    
+                    # Execute human move
+                    row = get_next_open_row(board, col)
+                    drop_piece(board, row, col, PLAYER_PIECE)
+                    print_board(board)
+                    
+                    # Check if human won
+                    if winning_move(board, PLAYER_PIECE):
+                        print("You win!")
+                        game_over = True
+                
+                else:  # RL Agent's turn
+                    valid_locations = get_valid_locations(board)
+                    if not valid_locations:
+                        print("It's a draw!")
+                        game_over = True
+                        continue
+                    
+                    # Get current state
+                    state = agent.encode_state(board, AI_PIECE)
+                    
+                    # Agent chooses action
+                    col = agent.act(state, valid_locations)
+                    print(f"AI chooses column {col}")
+                    
+                    # Execute action
+                    row = get_next_open_row(board, col)
+                    drop_piece(board, row, col, AI_PIECE)
+                    print_board(board)
+                    
+                    # Check if agent won
+                    if winning_move(board, AI_PIECE):
+                        print("AI wins!")
+                        game_over = True
+                
+                # Check for draw
+                if len(get_valid_locations(board)) == 0:
+                    print("Game is a draw!")
+                    game_over = True
+                
+                # Switch turns
+                turn = (turn + 1) % 2
+                
+        except FileNotFoundError:
+            print("No trained model found. Please train the agent first.")
+    
+    else:
+        print("Invalid choice")
