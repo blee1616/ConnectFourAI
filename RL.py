@@ -1,4 +1,3 @@
-#RL Bot
 import numpy as np
 import torch
 import torch.nn as nn
@@ -286,8 +285,6 @@ def play_and_train(episodes=50, batch_size=32):
                     reward = 0
                     game_over = True
                 else:
-                    # Reward for blocking potential human wins
-                    # Check if agent blocked a winning move
                     temp_board = board.copy()
                     for test_col in valid_locations:
                         if test_col == action:  # Skip the move we just made
@@ -302,26 +299,21 @@ def play_and_train(episodes=50, batch_size=32):
                     # Center control is generally good
                     if action == COLUMN_COUNT // 2:
                         reward += 3
-                
+
                 # Store experience
                 next_state = agent.encode_state(board, PLAYER_PIECE) if not game_over else None
                 agent.remember(state, action, reward, next_state, game_over)
-                
+
                 # Train the model
                 agent.replay(batch_size)
-            
-            # Switch turns
             turn = (turn + 1) % 2
         
         # After each game, update target network
         if episode % 5 == 0:
             agent.update_target_model()
     
-    # Save the trained model
     torch.save(agent.model.state_dict(), "human_trained_rl_model.pth")
     print("\nTraining complete! Model saved to 'human_trained_rl_model.pth'")
-    
-    # Show final stats
     print(f"Final stats: Human wins: {win_stats['Human']}, AI wins: {win_stats['AI']}, Draws: {win_stats['Draw']}")
     
     return agent
@@ -378,8 +370,7 @@ def test_trained_agent_vs_minimax(agent, depth=5, num_games=5):
                 print("Game is a draw!")
                 win_stats['Draw'] += 1
                 game_over = True
-            
-            # Switch turns
+
             turn = (turn + 1) % 2
     
     print("\nTest results:")
@@ -392,10 +383,9 @@ def load_trained_model(model_path="human_trained_rl_model.pth"):
     agent = DQNAgent(ROW_COUNT * COLUMN_COUNT + 1, COLUMN_COUNT)
     agent.model.load_state_dict(torch.load(model_path))
     agent.target_model.load_state_dict(agent.model.state_dict())
-    agent.epsilon = 0.05  # Low epsilon for exploitation
+    agent.epsilon = 0.05 
     return agent
 
-# Main execution
 if __name__ == "__main__":
     print("What would you like to do?")
     print("1. Train the RL agent by playing against it")
@@ -407,8 +397,6 @@ if __name__ == "__main__":
     if choice == '1':
         episodes = int(input("How many games would you like to play? "))
         agent = play_and_train(episodes=episodes)
-        
-        # Ask if user wants to test against minimax
         test_choice = input("Would you like to test your trained agent against minimax? (y/n): ")
         if test_choice.lower() == 'y':
             num_games = int(input("How many test games? "))
@@ -485,7 +473,6 @@ if __name__ == "__main__":
                     print("Game is a draw!")
                     game_over = True
                 
-                # Switch turns
                 turn = (turn + 1) % 2
                 
         except FileNotFoundError:
