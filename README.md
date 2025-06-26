@@ -1,93 +1,115 @@
-Overview
-This project implements a Connect Four game with two types of AI opponents:
+# Connect Four AI
 
-A traditional Minimax AI with alpha-beta pruning
-A Reinforcement Learning AI using Deep Q-Networks (DQN)
-The project allows you to play against either AI, train the RL agent through interactive gameplay, and compare the performance of both AI approaches.
+This project presents a Connect Four game featuring two distinct AI opponents: a classic Minimax AI with alpha-beta pruning and a modern Reinforcement Learning AI powered by a Deep Q-Network (DQN).
 
-Features
-Complete Connect Four game with GUI support
-Minimax AI that uses alpha-beta pruning for optimal moves
-Reinforcement Learning AI that learns from gameplay
-Interactive training - teach the RL agent by playing against it
-Performance comparison between Minimax and RL approaches
-Model saving and loading for continued training
-Installation
-'''bash
-Clone the repository:
-git clone https://github.com/yourusername/ConnectFourAI.git
-cd ConnectFourAI
-'''
-Install the required dependencies:
-'''bash
-pip install numpy pygame torch matplotlib
-'''
-Usage
-Run the main program:
-'''bash
+Users can play against either AI, interactively train the Reinforcement Learning agent, and benchmark the performance of these two powerful approaches against each other.
+
+## Features
+
+* **Complete Connect Four Game:** A fully playable Connect Four game with a graphical user interface (GUI).
+* **Minimax AI:** A highly optimized AI that uses alpha-beta pruning to determine the optimal move.
+* **Reinforcement Learning AI:** A sophisticated AI that learns and improves its strategy through gameplay.
+* **Interactive Training:** Train the RL agent simply by playing against it.
+* **Performance Comparison:** A mode to pit the Minimax AI against the trained RL AI to compare their effectiveness.
+* **Model Persistence:** Save and load the RL agent's state to continue training across multiple sessions.
+
+## Requirements
+
+* Python 3.x
+* NumPy
+* Pygame
+* PyTorch
+* Matplotlib
+
+## Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/yourusername/ConnectFourAI.git](https://github.com/yourusername/ConnectFourAI.git)
+    cd ConnectFourAI
+    ```
+
+2.  **Install the required dependencies:**
+    ```bash
+    pip install numpy pygame torch matplotlib
+    ```
+
+## Usage
+
+To start the application, run the `RL.py` file from your terminal:
+
+```bash
 python RL.py
-'''
-You'll be presented with three options:
+```
 
-Train the RL agent by playing against it - This allows you to teach the agent through interactive gameplay.
-Test a trained agent against minimax - Compare how well your trained agent performs against the traditional minimax AI.
-Play against a trained agent - Play a game against your previously trained RL agent.
-How It Works
-Minimax AI
-The minimax algorithm works by:
+Upon launching, you will be prompted to choose one of three modes:
 
-Exploring all possible future game states up to a certain depth
-Evaluating board positions with a scoring function
-Choosing the move that maximizes the AI's score while minimizing the opponent's score
-Using alpha-beta pruning to significantly reduce the search space
-Key components:
+1.  **Train the RL agent:** Play against the AI to teach it winning strategies.
+2.  **Test a trained agent against Minimax:** Evaluate your trained RL agent's performance against the classic Minimax AI.
+3.  **Play against a trained agent:** Challenge your previously trained RL agent to a game.
 
-Board state evaluation based on piece configurations
-Prioritization of center control and connected pieces
-Defensive blocking of opponent's potential wins
-Reinforcement Learning AI
-The RL agent uses Deep Q-Learning with experience replay to:
+## How It Works
 
-Learn effective strategies through trial and error
-Improve its decision making over time
-Adapt to different playing styles
-Key components:
+### Minimax AI
 
-Neural Network Architecture: 3-layer fully connected network
-State Representation: Flattened board (6×7=42) + current player
-Action Selection: Epsilon-greedy policy (balances exploration and exploitation)
-Reward Structure:
-+100 for winning moves
-+50 for blocking opponent's winning moves
-+3 for controlling the center
--10 for invalid moves
-Experience Replay: Stores and reuses past experiences for stable learning
-Project Structure
-main.py - Core game logic and minimax implementation
-RL.py - Reinforcement learning implementation
-human_trained_rl_model.pth - Saved model weights (created after training)
-Training the RL Agent
-When training the agent by playing against it:
+The Minimax algorithm is a staple of traditional game theory and operates by:
 
-The agent starts with a high exploration rate (trying random moves)
-As training progresses, it gradually shifts toward exploitation (making moves it believes are optimal)
-The agent learns from both wins and losses
-After training, the model is saved for future use
-Performance Comparison
-The two AI approaches have different strengths:
+* Recursively exploring all possible future moves up to a predefined search depth.
+* Using a scoring function to evaluate the strategic value of board positions.
+* Selecting the move that maximizes its own score while assuming the opponent will always act to minimize it.
+* Employing **alpha-beta pruning** to dramatically reduce the number of game states it needs to evaluate, making the search more efficient.
 
-Minimax AI: Perfect play up to its search depth, but computationally expensive
-RL AI: Can develop novel strategies and adapt to opponents, but performance depends on training quality
-Future Improvements
-Implement a self-play training mode for the RL agent
-Add Monte Carlo Tree Search (MCTS) as another AI approach
-Create a web interface for online play
-Improve the neural network architecture with convolutional layers
-Implement curriculum learning for faster training
+Our implementation evaluates board states by prioritizing center control, identifying connected pieces, and defensively blocking the opponent's potential wins.
 
-License
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Reinforcement Learning AI
 
-Acknowledgments
-The minimax implementation was inspired by traditional game theory algorithms
-The DQN implementation draws from DeepMind's groundbreaking work on deep reinforcement learning
+The RL agent utilizes a Deep Q-Network (DQN) with experience replay to learn effective strategies through trial and error. Over time, it refines its decision-making process to adapt to various playing styles.
+
+**Key Components:**
+
+* **Neural Network Architecture:** A 3-layer fully connected network serves as the brain of the AI.
+* **State Representation:** The input to the network is a flattened representation of the game board ($6 \times 7 = 42$ nodes) combined with the current player's turn.
+* **Action Selection:** An **epsilon-greedy policy** is used to balance exploration (trying new, random moves) and exploitation (choosing the move the network believes is optimal).
+* **Experience Replay:** The agent stores past experiences (state, action, reward, next state) in a memory buffer and replays them during training. This technique leads to more stable and effective learning.
+* **Reward Structure:** The agent is incentivized with the following rewards:
+    * **+100** for a winning move.
+    * **+50** for blocking an opponent's winning move.
+    * **+3** for controlling the center column.
+    * **-10** for attempting an invalid move.
+
+## Training the RL Agent
+
+When you choose to train the agent, you play against it directly. The agent's learning process is as follows:
+
+1.  **High Initial Exploration:** Initially, the agent has a high "epsilon" value, meaning it will frequently make random moves to explore the game.
+2.  **Gradual Exploitation:** As the agent plays more games (and is trained), its epsilon value decreases, causing it to more often exploit the strategies it has learned.
+3.  **Learning from Outcomes:** The agent learns from every move, associating actions with positive or negative outcomes.
+4.  **Model Saving:** Once the training session is complete, the trained model is saved to `human_trained_rl_model.pth` for future use.
+
+## Project Structure
+
+```
+ConnectFourAI/
+│
+├── main.py                   # Core game logic and Minimax implementation
+├── RL.py                     # Reinforcement Learning implementation and main entry point
+├── human_trained_rl_model.pth # Saved model weights (created after training)
+└── README.md                 # This file
+```
+
+## Future Improvements
+
+* **Self-Play Training:** Implement a mode where the RL agent trains by playing against itself, accelerating the learning process.
+* **Monte Carlo Tree Search (MCTS):** Introduce MCTS as a third AI opponent, a popular algorithm in modern game AI.
+* **Convolutional Neural Network (CNN):** Enhance the RL agent's neural network by using convolutional layers to better recognize spatial patterns on the board.
+* **Web Interface:** Create a web-based version of the game for online play.
+* **Curriculum Learning:** Introduce a structured training regimen where the agent first learns simple concepts before moving to more complex strategies.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
+
+## Acknowledgments
+
+* The Minimax implementation is inspired by classic algorithms in game theory.
+* The DQN implementation draws upon the foundational work on deep reinforcement learning by DeepMind.
